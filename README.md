@@ -218,16 +218,7 @@ El guion comprueba los escenarios mínimos: ingreso y persistencia, GPS canónic
 
 La evidencia de una ejecución exitosa se conserva en [docs/evidencias.md](docs/evidencias.md).
 
-## Publicación de la entrega
 
-Antes de entregar, publique este código en un repositorio propio de GitHub. El remoto actual es el proyecto base del docente y no debe recibir cambios de alumno. Después de crear el repositorio propio:
-
-```powershell
-git remote set-url origin https://github.com/<tu-usuario>/delivery-gps-eda.git
-git add .
-git commit -m "feat: desafío 3 seguimiento delivery por GPS"
-git push -u origin main
-```
 
 ## Estructura añadida
 
