@@ -1,0 +1,14 @@
+description = 'Delivery order process manager — REST API, GPS correlation, persistence and PUSH simulation'
+
+dependencies {
+    implementation project(':common')
+
+    implementation 'org.apache.camel:camel-platform-http'
+    implementation 'org.apache.camel:camel-platform-http-main'
+    implementation "org.postgresql:postgresql:${rootProject.postgresqlVersion}"
+    implementation "com.zaxxer:HikariCP:${rootProject.hikariVersion}"
+}
+
+application {
+    mainClass = 'org.example.fleet.delivery.MainApp'
+}

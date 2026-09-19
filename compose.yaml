@@ -1,18 +1,38 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres-delivery
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-delivery}
+      POSTGRES_USER: ${POSTGRES_USER:-delivery}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-delivery}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-delivery-data:/var/lib/postgresql/data
+      - ./database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - fleet-net
+    restart: unless-stopped
+
   artemis:
     image: apache/activemq-artemis:latest-alpine
     container_name: artemis-fleet
     environment:
-      - ANONYMOUS_LOGIN=true
-      - ARTEMIS_USER
-      - ARTEMIS_PASSWORD
+      ANONYMOUS_LOGIN: "true"
+      ARTEMIS_USER: ${ARTEMIS_USER:-admin}
+      ARTEMIS_PASSWORD: ${ARTEMIS_PASSWORD:-admin123}
     ports:
-      - "5672:5672"   # AMQP 1.0 acceptor
+      - "5672:5672" # AMQP 1.0 acceptor
       - "61616:61616" # Core/OpenWire acceptor
-      - "1883:1883" # MQTT acceptor
-      - "8161:8161"   # Web console
+      - "8161:8161" # Web console
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8161"]
+      test: [ "CMD-SHELL", "wget -q -O /dev/null http://localhost:8161" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,10 +44,10 @@ services:
     image: traccar/traccar:latest
     container_name: traccar-fleet
     ports:
-      - "8082:8082"   # Web UI / REST API
-      - "5001:5001"   # gps103 protocol
-      - "5002:5002"   # TK103 protocol
-      - "5055:5055"   # OsmAnd protocol (used for GPS ping simulation)
+      - "8082:8082" # Web UI / REST API
+      - "5001:5001" # gps103 protocol
+      - "5002:5002" # TK103 protocol
+      - "5055:5055" # OsmAnd protocol (used for GPS ping simulation)
     volumes:
       - ./traccar/traccar.xml:/opt/traccar/conf/traccar.xml:ro
     #depends_on:
@@ -45,15 +65,13 @@ services:
     build:
       context: .
       dockerfile: broker/Dockerfile
-      additional_contexts:
-        m2-cache: ${HOME}/.m2
     container_name: broker-fleet
     environment:
-      - ARTEMIS_AMQP_URL=${ARTEMIS_AMQP_URL:-amqp://artemis:5672}
-      - ARTEMIS_USER
-      - ARTEMIS_PASSWORD
+      ARTEMIS_AMQP_URL: ${ARTEMIS_AMQP_URL:-amqp://artemis:5672}
+      ARTEMIS_USER: ${ARTEMIS_USER:-admin}
+      ARTEMIS_PASSWORD: ${ARTEMIS_PASSWORD:-admin123}
     ports:
-      - "8080:8080"   # HTTP endpoint for Traccar forwards
+      - "8083:8080" # HTTP endpoint for Traccar forwards (8080 is reserved on the host)
     depends_on:
       artemis:
         condition: service_healthy
@@ -65,13 +83,11 @@ services:
     build:
       context: .
       dockerfile: positions-consumer/Dockerfile
-      additional_contexts:
-        m2-cache: ${HOME}/.m2
     container_name: positions-consumer-fleet
     environment:
-      - ARTEMIS_AMQP_URL=${ARTEMIS_AMQP_URL:-amqp://artemis:5672}
-      - ARTEMIS_USER
-      - ARTEMIS_PASSWORD
+      ARTEMIS_AMQP_URL: ${ARTEMIS_AMQP_URL:-amqp://artemis:5672}
+      ARTEMIS_USER: ${ARTEMIS_USER:-admin}
+      ARTEMIS_PASSWORD: ${ARTEMIS_PASSWORD:-admin123}
     depends_on:
       artemis:
         condition: service_healthy
@@ -83,13 +99,11 @@ services:
     build:
       context: .
       dockerfile: events-consumer/Dockerfile
-      additional_contexts:
-        m2-cache: ${HOME}/.m2
     container_name: events-consumer-fleet
     environment:
-      - ARTEMIS_AMQP_URL=${ARTEMIS_AMQP_URL:-amqp://artemis:5672}
-      - ARTEMIS_USER
-      - ARTEMIS_PASSWORD
+      ARTEMIS_AMQP_URL: ${ARTEMIS_AMQP_URL:-amqp://artemis:5672}
+      ARTEMIS_USER: ${ARTEMIS_USER:-admin}
+      ARTEMIS_PASSWORD: ${ARTEMIS_PASSWORD:-admin123}
     depends_on:
       artemis:
         condition: service_healthy
@@ -97,6 +111,40 @@ services:
       - fleet-net
     restart: unless-stopped
 
+  delivery-service:
+    build:
+      context: .
+      dockerfile: delivery-service/Dockerfile
+    container_name: delivery-process-manager
+    environment:
+      ARTEMIS_AMQP_URL: ${ARTEMIS_AMQP_URL:-amqp://artemis:5672}
+      ARTEMIS_USER: ${ARTEMIS_USER:-admin}
+      ARTEMIS_PASSWORD: ${ARTEMIS_PASSWORD:-admin123}
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-delivery}
+      DB_USER: ${POSTGRES_USER:-delivery}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-delivery}
+    ports:
+      - "8081:8080"
+    depends_on:
+      artemis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - fleet-net
+    restart: unless-stopped
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.tests
+    profiles: ["test"]
+    # This service is opt-in: it runs the Java 21 Gradle suite and exits.
+    command: ["gradle", "test", "--no-daemon"]
+
 networks:
   fleet-net:
     driver: bridge
+
+volumes:
+  postgres-delivery-data:

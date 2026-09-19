@@ -1,0 +1,6 @@
+# Reproducible Java 21 test runner. It avoids requiring a local JDK.
+FROM gradle:9.6.0-jdk21-corretto
+WORKDIR /workspace
+COPY --chown=gradle:gradle . ./
+RUN chown -R gradle:gradle /workspace
+USER gradle

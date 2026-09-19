@@ -9,6 +9,8 @@ ext {
     camelVersion = '4.8.0'
     artemisVersion = '2.31.2'
     logbackVersion = '1.5.28'
+    postgresqlVersion = '42.7.4'
+    hikariVersion = '5.1.0'
 }
 
 subprojects {
@@ -42,16 +44,24 @@ subprojects {
 
         implementation 'org.slf4j:slf4j-api'
         implementation "ch.qos.logback:logback-classic:${rootProject.logbackVersion}"
+
+        testImplementation platform('org.junit:junit-bom:5.10.3')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     }
 
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
         options.release = 21
     }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
 }
 
 // Application and fat-jar assembly only for service modules (not common library)
-configure([project(':broker'), project(':positions-consumer'), project(':events-consumer'), project(':mediator')]) {
+configure([project(':broker'), project(':positions-consumer'), project(':events-consumer'), project(':mediator'), project(':delivery-service')]) {
     apply plugin: 'application'
 
     tasks.named('jar') {

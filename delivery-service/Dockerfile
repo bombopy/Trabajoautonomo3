@@ -2,13 +2,10 @@
 FROM gradle:9.6.0-jdk21-corretto AS builder
 WORKDIR /build
 RUN chown gradle:gradle /build
-
 COPY --chown=gradle:gradle . ./
-
-RUN gradle :broker:installDist -x test --no-daemon
+RUN gradle :delivery-service:installDist --no-daemon
 
 FROM amazoncorretto:21-alpine-jdk
 WORKDIR /app
-COPY --from=builder /build/broker/build/install/broker/ ./
-EXPOSE 8080
-ENTRYPOINT ["/app/bin/broker"]
+COPY --from=builder /build/delivery-service/build/install/delivery-service/ ./
+ENTRYPOINT ["/app/bin/delivery-service"]

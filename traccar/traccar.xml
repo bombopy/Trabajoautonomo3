@@ -11,7 +11,11 @@
     <entry key='logger.rotate'>true</entry>
 
     <!-- Database: use H2 (embedded, ephemeral for demo purposes) -->
-    <entry key='database.ignoreUnknown'>true</entry>
+    <entry key='database.ignoreUnknown'>false</entry>
+    <entry key='database.registerUnknown'>true</entry>
+    <!-- Both demo couriers are pre-seeded in PostgreSQL. The second one is
+         used to demonstrate the "no active order" DLQ scenario. -->
+    <entry key='database.registerUnknown.regex'>^(repartidor-01|repartidor-02)$</entry>
     <entry key='database.changelog'>./schema/changelog-master.xml</entry>
     <entry key='database.driver'>org.h2.Driver</entry>
     <entry key='database.url'>jdbc:h2:./data/traccar</entry>

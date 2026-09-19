@@ -17,10 +17,12 @@ public class TraccarEventTranslator {
     public VehicleEvent translate(JsonNode traccarJson) throws Exception {
         JsonNode event = traccarJson.get("event");
 
-        String deviceId = event.get("deviceId").asText();
+        String deviceId = externalDeviceId(traccarJson, event);
         String eventType = event.get("type").asText();
-        long eventTimeMs = event.get("eventTime").asLong();
-        String timestamp = eventTimeMs > 0 ? Instant.ofEpochMilli(eventTimeMs).toString() : event.get("eventTime").asText();
+        JsonNode eventTime = event.get("eventTime");
+        long eventTimeMs = eventTime == null ? 0 : eventTime.asLong();
+        String timestamp = eventTimeMs > 0 ? Instant.ofEpochMilli(eventTimeMs).toString()
+            : eventTime != null && !eventTime.isNull() ? eventTime.asText() : Instant.now().toString();
 
         String positionId = null;
         if (event.has("positionId") && !event.get("positionId").isNull()) {
@@ -43,7 +45,7 @@ public class TraccarEventTranslator {
 
         return new VehicleEvent(
             "1.0",
-            UUID.randomUUID().toString(),
+            event.hasNonNull("id") ? "traccar-event-" + event.get("id").asText() : UUID.randomUUID().toString(),
             deviceId,
             eventType,
             timestamp,
@@ -51,5 +53,16 @@ public class TraccarEventTranslator {
             geofenceId,
             attributes
         );
+    }
+
+    private String externalDeviceId(JsonNode payload, JsonNode event) {
+        JsonNode device = payload.path("device");
+        if (device.hasNonNull("uniqueId") && !device.get("uniqueId").asText().isBlank()) {
+            return device.get("uniqueId").asText();
+        }
+        if (event.hasNonNull("deviceId")) {
+            return event.get("deviceId").asText();
+        }
+        throw new IllegalArgumentException("EVENTO_SIN_DEVICE_ID");
     }
 }
